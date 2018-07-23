@@ -76,41 +76,54 @@ bool ATile::FindEmptyLocation(FVector& OutLocation, float Radius)
 void ATile::PlaceActor(TSubclassOf<AActor> ToSpawn, FSpawnPosition& SpawnPosition)
 {
 	AActor* Spawned = GetWorld()->SpawnActor(ToSpawn);
-	Spawned->SetActorRelativeLocation(SpawnPosition.Location);
-	Spawned->AttachToActor(this, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
-	Spawned->SetActorRotation(FRotator(0, SpawnPosition.Rotation, 0));
-	Spawned->SetActorScale3D(FVector(SpawnPosition.Scale));
+	if (Spawned)
+	{
+		Spawned->SetActorRelativeLocation(SpawnPosition.Location);
+		Spawned->AttachToActor(this, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
+		Spawned->SetActorRotation(FRotator(0, SpawnPosition.Rotation, 0));
+		Spawned->SetActorScale3D(FVector(SpawnPosition.Scale));
+	}
 }
 
 void ATile::PlaceActors(TSubclassOf<AActor> ToSpawn, FSpawnProperties& SpawnProperties)
 {
-	TArray<FSpawnPosition> SpawnPositions = RandomSpawnPositions(SpawnProperties);
-
-	for (FSpawnPosition SpawnPosition : SpawnPositions)
-	{
-		PlaceActor(ToSpawn, SpawnPosition);
-	}
+	RandomlyPlaceActors(ToSpawn, SpawnProperties);
 }
 
 void ATile::PlaceAIPawns(TSubclassOf<APawn> ToSpawn, FSpawnProperties& SpawnProperties)
 {
-	TArray<FSpawnPosition> SpawnPositions = RandomSpawnPositions(SpawnProperties);
+	RandomlyPlaceActors(ToSpawn, SpawnProperties);
+}
 
-	for (FSpawnPosition SpawnPosition : SpawnPositions)
+void ATile::PlaceActor(TSubclassOf<APawn> ToSpawn, FSpawnPosition& SpawnPosition)
+{
+	APawn* Spawned = GetWorld()->SpawnActor<APawn>(ToSpawn);
+	if (Spawned)
 	{
-		PlaceAIPawn(ToSpawn, SpawnPosition);
+		Spawned->SetActorRelativeLocation(SpawnPosition.Location);
+		Spawned->AttachToActor(this, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
+		Spawned->SetActorRotation(FRotator(0, SpawnPosition.Rotation, 0));
+		//Spawned->SetActorScale3D(FVector(SpawnPosition.Scale)); Scaling options
+		Spawned->SpawnDefaultController();
+		Spawned->Tags.Add(FName("Enemy"));
 	}
 }
 
-void ATile::PlaceAIPawn(TSubclassOf<APawn> ToSpawn, FSpawnPosition& SpawnPosition)
+template <class T>
+void ATile::RandomlyPlaceActors(TSubclassOf<T> ToSpawn, FSpawnProperties& SpawnProperties)
 {
-	APawn* Spawned = GetWorld()->SpawnActor<APawn>(ToSpawn);
-	Spawned->SetActorRelativeLocation(SpawnPosition.Location);
-	Spawned->AttachToActor(this, FAttachmentTransformRules(EAttachmentRule::KeepRelative, false));
-	Spawned->SetActorRotation(FRotator(0, SpawnPosition.Rotation, 0));
-	//Spawned->SetActorScale3D(FVector(SpawnPosition.Scale)); Scaling options
-	Spawned->SpawnDefaultController();
-	Spawned->Tags.Add(FName("Enemy"));
+	TArray<FSpawnPosition> SpawnPositions;
+	int NumberToSpawn = FMath::RandRange(SpawnProperties.MinSpawn, SpawnProperties.MaxSpawn);
+	for (size_t i = 0; i < NumberToSpawn; i++)
+	{
+		FSpawnPosition SpawnPosition;
+		SpawnPosition.Scale = FMath::RandRange(SpawnProperties.MinScale, SpawnProperties.MaxScale);
+		bool found = FindEmptyLocation(SpawnPosition.Location, SpawnProperties.Radius * SpawnPosition.Scale);
+		if (found) {
+			SpawnPosition.Rotation = FMath::RandRange(-180.f, 180.f);
+			PlaceActor(ToSpawn, SpawnPosition);
+		}
+	}
 }
 
 TArray<FSpawnPosition> ATile::RandomSpawnPositions(FSpawnProperties SpawnProperties)
